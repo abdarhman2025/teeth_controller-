@@ -3,39 +3,44 @@ project(teeth_controller)
 
 set(CMAKE_CXX_STANDARD 11)
 
-find_package(ament_cmake REQUIRED)
-
-
-cmake_minimum_required(VERSION 3.8)
-project(teeth_controller)
-
-set(CMAKE_CXX_STANDARD 11)
-
-find_package(ament_cmake REQUIRED)
-
-# ================================================
+# ==========================================
 # Include xArm C++ SDK headers
-# ================================================
-# IMPORTANT: Adjust the relative path if needed
+# ==========================================
 include_directories(
-  ${CMAKE_SOURCE_DIR}/../../xArm-CPLUS-SDK/include
+  ${CMAKE_SOURCE_DIR}/thirdparty/xArm-CPLUS-SDK/include
 )
 
-# ================================================
-# Build your executable
-# ================================================
+# ==========================================
+# Collect all SDK .cc files EXCEPT /bak/ folder
+# ==========================================
+file(GLOB_RECURSE ALL_SDK_SOURCES
+    ${CMAKE_SOURCE_DIR}/thirdparty/xArm-CPLUS-SDK/src/*.cc
+)
+
+# Remove any .cc files inside "bak" directories
+set(XARM_SDK_SOURCES "")
+foreach(src ${ALL_SDK_SOURCES})
+    if(NOT src MATCHES "/bak/")
+        list(APPEND XARM_SDK_SOURCES ${src})
+    endif()
+endforeach()
+
+# ==========================================
+# Build the xArm SDK library
+# ==========================================
+add_library(xarm_cpp_sdk STATIC
+    ${XARM_SDK_SOURCES}
+)
+
+target_link_libraries(xarm_cpp_sdk pthread)
+
+# ==========================================
+# Build  executable
+# ==========================================
 add_executable(teeth_exec src/main.cpp)
 
-# Link pthread (required by SDK)
-target_link_libraries(teeth_exec pthread)
-
-# ================================================
-# Install executable so 'ros2 run' works
-# ================================================
-install(TARGETS teeth_exec
-  DESTINATION lib/${PROJECT_NAME}
+target_link_libraries(teeth_exec
+    xarm_cpp_sdk
+    pthread
 )
-
-ament_package()
-
 
