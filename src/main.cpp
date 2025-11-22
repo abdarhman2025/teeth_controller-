@@ -39,11 +39,13 @@ int main(int argc , char ** argv){
     if (arm->error_code != 0) arm->clean_error();
     if(arm->warn_code != 0)  arm->clean_warn();
     arm->motion_enable(true);
-
     arm->set_mode(0);  // position mode 
     arm->set_state(0); // set  state to 0 to make robot  ready 
     sleep_milliseconds(500);
-    
+    // setup tcp tool shift  
+    float  tcp_offset[6] = {-34.03f, -3.22f,338.32f,0.0f,0.0f,0.0f};
+    arm->set_tcp_offset(tcp_offset);
+    sleep_milliseconds(100);
     // setup oreintation for robot tcp pose  
     float  speed = 20 ;
     float  acc = 200 ; 
