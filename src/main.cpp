@@ -27,7 +27,7 @@ int main(int argc , char ** argv){
         while (std::getline(ss, cell, ',')) {
             row.push_back(std::stod(cell));
         }
-        if (row.size() ==4) {
+        if (row.size() ==3) { //csv input will be x,y,z  only  
            csv_data.push_back(row);
         }
     }
