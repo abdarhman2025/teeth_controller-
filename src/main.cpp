@@ -34,15 +34,11 @@ int main(int argc , char ** argv){
     
     // create  robot  instance  
     std::string port("192.168.1.221");
-    XArmAPI *arm = new XArmAPI(port);
+    XArmAPI *arm = new XArmAPI(port,true); //make orientation in radain
     sleep_milliseconds(500);
     if (arm->error_code != 0) arm->clean_error();
     if(arm->warn_code != 0)  arm->clean_warn();
-    arm->motion_enable(true);
-    arm->set_mode(0);  // position mode 
-    arm->set_state(0); // set  state to 0 to make robot  ready 
-    sleep_milliseconds(500);
-    // setup tcp tool shift  
+        //setup tcp tool shift  
     float tcp_offset[6] = {
         -34.03f,   // x offset (mm)
         -3.22f,    // y offset (mm)
@@ -51,7 +47,7 @@ int main(int argc , char ** argv){
         0.0f,      // pitch offset (rad)
         0.0f       // yaw offset (rad)
     };
-    int ret = arm->set_tcp_offset(tcp_offset);
+    int ret = arm->set_tcp_offset(tcp_offset,true);
     std::cout << "set_tcp_offset ret = " << ret << std::endl;
     if (ret != 0) {
         std::cerr << "Error: set_tcp_offset failed, aborting.\n";
@@ -59,15 +55,39 @@ int main(int argc , char ** argv){
         delete arm;
         return -1;
     }
-    sleep_milliseconds(100);
+    std::cout<<"tcp shift after set offset"<<std::endl;
+    std::cout << "Current TCP Offset:" << std::endl;
+    std::cout << "  x = " << arm->tcp_offset[0] << " mm" << std::endl;
+    std::cout << "  y = " << arm->tcp_offset[1] << " mm" << std::endl;
+    std::cout << "  z = " << arm->tcp_offset[2] << " mm" << std::endl;
+    std::cout << " roll = " << arm->tcp_offset[3] << " rad" << std::endl;
+    std::cout << "pitch = " << arm->tcp_offset[4] << " rad" << std::endl;
+    std::cout << "  yaw = " << arm->tcp_offset[5] << " rad" << std::endl;
+    sleep_milliseconds(500);
+    arm->motion_enable(true);
+    arm->set_mode(0);  // position mode 
+    arm->set_state(0); // set  state to 0 to make robot  ready 
+    // Wait until robot is actually ready
+    int tries = 100;
+    while ((arm->state != 0 || arm->mode != 0) && tries-- > 0) {
+        sleep_milliseconds(50);
+    }
+
+    if (arm->state != 0 || arm->mode != 0) {
+        std::cerr << "❌ Robot is not ready after mode/state commands!\n";
+        return -1;
+    }
+   std::cout<<"robot is ready to move now\n";
+  
 
     // setup oreintation for robot tcp pose  
-    float  speed = 20 ;
-    float  acc = 200 ; 
+    float  speed = 10 ;
+    float  acc = 100 ; 
     float  mvtime = 0 ; 
     float roll  = 3.1364975f;
     float pitch = -1.0373678f;
     float yaw   = 0.00118106f;
+
 
     std::cout << "Starting Cartesian path execution...\n";
     for (size_t i = 0; i < csv_data.size(); ++i) {
@@ -92,13 +112,13 @@ int main(int argc , char ** argv){
                   << ", y=" << pose[1]
                   << ", z=" << pose[2] << std::endl;
 
-        ret = arm->set_position(
+        int  ret = arm->set_position(
             pose,
             -1.0f,   // radius: -1 = no blending
             speed,
             acc,
             mvtime,
-            false    // wait = false → non-blocking like your bash script
+            true 
         );
 
         if (ret != 0) {
@@ -108,7 +128,7 @@ int main(int argc , char ** argv){
         }
 
         // small delay between commands
-        sleep_milliseconds(10);
+         sleep_milliseconds(100);
     }
 
 
