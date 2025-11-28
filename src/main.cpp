@@ -4,6 +4,14 @@
 #include <string>
 #include <fstream>
 #include <sstream>
+#include <algorithm>
+#include <cmath>
+float rad2deg(float r){
+    return r * (180.0f /static_cast<float>(M_PI));
+}
+float deg2rad(float d){
+    return d * (static_cast<float>(M_PI)/180.0f);
+}
 int main(int argc , char ** argv){
     if(argc != 2){
         std::cout << "Usage: ./program <path/to/csv_file>\n";
@@ -27,7 +35,7 @@ int main(int argc , char ** argv){
         while (std::getline(ss, cell, ',')) {
             row.push_back(std::stod(cell));
         }
-        if (row.size() ==3) { //csv input will be x,y,z  only  
+        if (row.size() ==6) { //csv input will be x,y,z  only  
            csv_data.push_back(row);
         }
     }
@@ -86,7 +94,7 @@ int main(int argc , char ** argv){
     int coord = 1; // 0 : base , 1 : tool
     int c_axis[6] = { 0, 0, 1, 0, 0, 0 }; // only control force along z axis
     // MAKE SURE reference frame and force taget sign are correct !!
-    float f_ref[6] = { 0, 0, 1.5, 0, 0, 0 }; // the force(N) that xArm will apply to the environment
+    float f_ref[6] = { 0.0, 0, 0.6, 0, 0, 0 }; // the force(N) that xArm will apply to the environment
     float limits[6] = { 0 }; // limits are reserved, just give zeros
     int ret_ft;
 
@@ -108,29 +116,50 @@ int main(int argc , char ** argv){
         // setup oreintation for robot tcp pose  
     float  speed = 10 ;
     float  acc = 100 ; 
-    float  mvtime = 0 ; 
-    float roll  = 3.1364975f;
-    float pitch = -1.0373678f;
-    float yaw   = 0.00118106f;
+    float  mvtime = 0 ;
+    // angles from [180,-180] 
+    // float roll  = 3.1364975f; 179.713  [120 ,-120]
+    // float pitch = -1.0373678f; 59.44 [0,120]
+    // float yaw   = 0.00118106f; 0.067 [-60,60]
     // will start after set_state(0)
     ret_ft = arm->set_state(0);
 
     // keep for 5 secs
     sleep_milliseconds(1000 * 5);
-            float pose[6] = {
-            static_cast<float>(csv_data[0][0]),   // x (mm)
-            static_cast<float>(csv_data[0][1]),   // y (mm)
-            static_cast<float>(csv_data[0][2]+1.5),   // z (mm)
-            roll,
-            pitch,
-            yaw
+    // Read raw values from CSV (in radians)
+    float x = static_cast<float>(csv_data[0][0]);
+    float y = static_cast<float>(csv_data[0][1]);
+    float z = static_cast<float>(csv_data[0][2]);
+
+    // float roll_raw  = static_cast<float>(csv_data[0][3]);
+    // float pitch_raw = static_cast<float>(csv_data[0][4]);
+   // float yaw_raw   = static_cast<float>(csv_data[0][5]);
+    // float yaw_lim = deg2rad(std::clamp(rad2deg(yaw_raw),-40.0f,40.0f));
+    // float yaw_lim = deg2rad(std::clamp(rad2deg(yaw_raw),-40.0f,40.0f));
+    // float yaw_lim = deg2rad(std::clamp(rad2deg(yaw_raw),-40.0f,40.0f));
+
+    float roll_raw  =3.1364975f ;
+    float pitch_raw = -1.0373678f;
+    float yaw_raw   = 0.8f; //25 degree
+        // Fill pose array
+     float pose[6] = {
+            x, y, z,
+            roll_raw,
+            pitch_raw,
+            yaw_raw
         };
 
+        // === PRINT POSE (degrees for rotation) ===
         std::cout << "[ Moving to: "
-                  << "x=" << pose[0]
-                  << ", y=" << pose[1]
-                  << ", z=" << pose[2] << std::endl;
-        int ret_first = arm->set_position(
+                << "x=" << x
+                << ", y=" << y
+                << ", z=" << z
+                << ", roll(deg)="  << rad2deg(roll_raw)
+                << ", pitch(deg)=" << rad2deg(pitch_raw)
+                << ", yaw(deg)="   << rad2deg(yaw_raw)
+                //<< ", yaw(deg)lim="   << rad2deg(yaw_lim)
+                << " ]" << std::endl;
+    int ret_first = arm->set_position(
             pose,
             -1.0f,   // radius: -1 = no blending
             speed,
@@ -160,6 +189,11 @@ int main(int argc , char ** argv){
 
 
     std::cout << "Starting Cartesian path execution...\n";
+    size_t N = csv_data.size();       // total number of points
+    size_t n1 = N / 5;         // 20%
+    size_t n2 = (2 * N) / 5;   // 40%
+    size_t n3 = (3 * N) / 5;   // 60%
+    size_t n4 = (4 * N) / 5;   // 80%
     for (size_t i = 0; i < csv_data.size(); ++i) {
         if (arm->error_code != 0) {
             std::cerr << "Robot error detected (error_code="
@@ -167,20 +201,51 @@ int main(int argc , char ** argv){
             break;
         }
 
-        // CSV row: [x, y, z, 1]
-        float pose[6] = {
-            static_cast<float>(csv_data[i][0]),   // x (mm)
-            static_cast<float>(csv_data[i][1]),   // y (mm)
-            static_cast<float>(csv_data[i][2]+1.5),   // z (mm)
-            roll,
-            pitch,
-            yaw
-        };
+        // Read raw values from CSV (in radians)
+        float x = static_cast<float>(csv_data[i][0]);
+        float y = static_cast<float>(csv_data[i][1]);
+        float z = static_cast<float>(csv_data[i][2]+ 1.5f);
 
-        std::cout << "[" << i << "] Moving to: "
-                  << "x=" << pose[0]
-                  << ", y=" << pose[1]
-                  << ", z=" << pose[2] << std::endl;
+        // float roll_raw  = static_cast<float>(csv_data[i][3]);
+        // float pitch_raw = static_cast<float>(csv_data[i][4]);
+        //float yaw_raw   = static_cast<float>(csv_data[i][5]);
+        // float yaw_lim = deg2rad(std::clamp(rad2deg(yaw_raw),-40.0f,40.0f));
+        roll_raw  =3.1364975f ;
+        pitch_raw = -1.0373678f;
+        if (i < n1) {
+            yaw_raw =  0.8f;      // Region 1 (0–20%)
+        }
+        else if (i < n2) {
+            yaw_raw =  0.4f;      // Region 2 (20–40%)
+        }
+        else if (i < n3) {
+            yaw_raw =  0.0f;      // Region 3 (40–60%)
+        }
+        else if (i < n4) {
+            yaw_raw = -0.4f;      // Region 4 (60–80%)
+        }
+        else {
+            yaw_raw = -0.8f;      // Region 5 (80–100%)
+        }
+
+        // Fill pose array
+        float pose[6] = {
+                x, y, z,
+                roll_raw,
+                pitch_raw,
+                yaw_raw
+            };
+
+            // === PRINT POSE (degrees for rotation) ===
+            std::cout << "[ Moving to: "
+                    << "x=" << x
+                    << ", y=" << y
+                    << ", z=" << z
+                    << ", roll(deg)="  << rad2deg(roll_raw)
+                    << ", pitch(deg)=" << rad2deg(pitch_raw)
+                    << ", yaw(deg)="   << rad2deg(yaw_raw)
+                   // << ", yaw(deg)lim="   << rad2deg(yaw_lim)
+                    << " ]" << std::endl;
 
         int  ret = arm->set_position(
             pose,
