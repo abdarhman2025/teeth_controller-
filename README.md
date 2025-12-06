@@ -64,29 +64,96 @@ cmake ..
 make -j4
 ```
 
-This creates the executable:
+This creates the executables files
 
-```
-build/teeth_exec
+
+
+# 🦷 DentalRobot — Operation & Alignment Guide
+
+This document explains how to run the DentalRobot system, including launching the GUI, running the robot driver, starting the RealSense camera, performing alignment, and executing inner/outer cleaning routines.
+
+---
+
+# 📁 1. GUI Operation
+
+The GUI allows you to upload the teeth model and manually select the region to clean.
+
+### **Launch the GUI**
+```bash
+cd /home/amrish/Documents/DentalRobot/DentalRepo
+conda activate /home/amrish/miniconda3/envs/dental_gui
+python3 main.py
 ```
 
 ---
 
-## ▶️ Run
+# 🤖 2. Robot Driver (xArm + MoveIt)
 
-Make sure the xArm ROS driver is **not** running.
+Start the xArm robot driver with MoveIt.  
+RealSense D435i integration is enabled using the launch argument.
 
-```
-./teeth_exec
-```
-
-Robot IP is set inside `src/main.cpp`:
-
-```cpp
-XArmAPI arm("192.168.1.221");
+```bash
+ros2 launch xarm_moveit_config xarm7_moveit_realmove.launch.py     robot_ip:=192.168.1.221 add_realsense_d435i:=true
 ```
 
-Change it to your robot’s IP.
+---
+
+# 📷 3. RealSense Camera Node
+
+Launch the RealSense D435i camera with correct calibration/configuration files.
+
+```bash
+ros2 launch realsense2_camera rs_launch.py     config_file:=/home/amrish/realsense_params/d435if_ros.yaml     json_file_path:=/home/amrish/realsense_params/d435if_optimal.json
+```
+
+---
+
+# 🎯 4. Alignment Process
+
+The alignment node takes teeth waypoints in the **teeth frame** and outputs transformed waypoints in the **robot base frame**.
+
+### **Input:**  
+`/tmp/waypoints_teeth.csv`
+
+### **Output:**  
+`/tmp/waypoints_dummy_in_base.csv`
+
+### **Run the aligner:**
+```bash
+ros2 run jaw_alignment teeth_aligner
+```
+
+---
+
+# 🛠️ 5. Cleaning Execution (After Alignment)
+
+After alignment completes, use the transformed CSV file to execute the cleaning routines.
+
+---
+
+## 🧼 Outer Surface Cleaning
+
+```bash
+cd /home/amrish/dental_ws/src/teeth_controller-/build
+./outer_cleaner /tmp/waypoints_dummy_in_base.csv
+```
+
+---
+
+## 🧼 Inner Surface Cleaning
+
+```bash
+cd /home/amrish/dental_ws/src/teeth_controller-/build
+./inner_cleaner /tmp/waypoints_dummy_in_base.csv
+```
+
+---
+
+# ✔ Notes
+
+- Ensure the GUI export generates `/tmp/waypoints_teeth.csv` before running the aligner.
+- Confirm that the robot, camera, and GUI are all running before executing cleaning programs.
+- Alignment must be performed **every time the mouth or jaw position changes**.
 
 ---
 

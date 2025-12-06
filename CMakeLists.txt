@@ -35,12 +35,20 @@ add_library(xarm_cpp_sdk STATIC
 target_link_libraries(xarm_cpp_sdk pthread)
 
 # ==========================================
-# Build  executable
+# Build  executable for outer cleaner
 # ==========================================
-add_executable(teeth_exec src/main.cpp)
+add_executable(outer_cleaner src/outer_main.cpp)
 
-target_link_libraries(teeth_exec
+target_link_libraries(outer_cleaner
     xarm_cpp_sdk
     pthread
 )
 
+# Build  executable for inner cleaner
+# ==========================================
+add_executable(inner_cleaner src/inner_main.cpp)
+
+target_link_libraries(inner_cleaner
+    xarm_cpp_sdk
+    pthread
+)
