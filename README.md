@@ -120,7 +120,7 @@ The alignment node takes teeth waypoints in the **teeth frame** and outputs tran
 
 ### **Run the aligner:**
 ```bash
-ros2 run jaw_alignment teeth_aligner
+ros2 run jaw_alignment teeth_aligner <path/to/file.ply>
 ```
 
 ---
